@@ -1,4 +1,5 @@
 **Resume_Challenge#6**
+This Challenge is conducted by Codebasic Team (codebasics.io)
 Providing Insights to the Marketing Team of the Food and Beverage Industry 
 
 This project is about the F&B company analyzing its product performance after launching for a few months. 
