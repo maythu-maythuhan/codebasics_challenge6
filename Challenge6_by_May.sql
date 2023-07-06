@@ -27,7 +27,7 @@ FROM genderCountWithConsumeFrequency;
 -----------------------------------------------------------------------------------------------------------
 # 1b. Which age group prefers energy drinks more?
 
-SELECT Age, count(Respondent_ID)
+SELECT Age, count(Respondent_ID) as Total_respondent
 FROM dim_repondents
 GROUP BY 1 
 ORDER BY 2 desc;
@@ -47,9 +47,9 @@ cte as (
 		sum(Age_Group_Count) over(partition by Age order by Age_Group_Count) AS cumulative_age_count
 	FROM ConsumeFrequencyWithAgeGroup
 )
-SELECT * FROM cte;
-	-- Age, cumulative_age_count from cte
--- where cumulative_age_count = (select max(cumulative_age_count) from cte);
+SELECT 
+	*
+FROM cte;
     
 ----------------------------------------------------------------------------------------------------------------    
 #1C.  Which type of marketing reaches the most Youth (15-30)?
@@ -113,7 +113,7 @@ FROM fact_survey_responses
 GROUP BY 1
 ORDER BY 2 desc;
 
-# Going more details with the Age Group Consumers
+# Doing more details with the Age Group Consumers
 
 SELECT 
 	Marketing_channels,
@@ -180,10 +180,8 @@ SELECT
     count(*) * 100 / (SELECT count(*) FROM fact_survey_responses) as percent
 FROM 
     fact_survey_responses
-GROUP BY 
-    Brand_perception
-ORDER BY 
-    percent DESC;
+GROUP BY Brand_perception
+ORDER BY percent DESC;
 
 
 -- We got too many neutral, Why?
@@ -197,64 +195,103 @@ FROM fact_survey_responses
 GROUP BY 1
 ORDER BY percent desc;
 
--- For those who haven't tried, Why??
+-- For those who haven't tried, Why?? (Tried_before = "No")
+# Top 3 Reasons why not!
 
-SELECT 
-	Tried_before,
-	Reasons_preventing_trying,
-    count(Reasons_preventing_trying) as vote
-FROM fact_survey_responses
-WHERE Tried_before="No"
-GROUP BY 2
-ORDER BY 3 desc;
+With Tier_Reasons as (
+	SELECT 
+		Tier,
+		Reasons_preventing_trying,
+		count(Reasons_preventing_trying) AS Vote,
+		dense_rank() over(partition by Tier order by count(Reasons_preventing_trying) desc ) AS Vote_Count
+	FROM fact_survey_responses
+	JOIN dim_repondents
+	USING (Respondent_ID)
+	JOIN dim_cities
+	USING (City_ID)
+	WHERE Tried_before="No"
+	GROUP BY 1,2
+)
+SELECT
+	*
+FROM Tier_Reasons
+WHERE Vote_Count <4;
+
 
 -- For those who have tried before, why is it still neutral??
 
-SELECT 
-	Tried_before,
-	Taste_experience,
-    count(Taste_experience) as Vote
-FROM fact_survey_responses
-WHERE Tried_before="Yes"
-GROUP BY 2
-ORDER BY 3 desc;
+SELECT * FROM (
+	SELECT 
+		Tier,
+		Taste_experience,
+		count(Taste_experience) as Vote,
+		dense_rank() over(partition by Tier order by count(Taste_experience) desc ) as Vote_Rank
+	FROM fact_survey_responses
+	JOIN dim_repondents
+	USING (Respondent_ID)
+	JOIN dim_cities
+	USING (City_ID)
+	WHERE Tried_before="Yes"
+	GROUP BY 1,2
+) AS YES_Reasons
+WHERE Vote_Rank <4;
 
 ----------------------------------------------------------
 
 #5B. Which cities do we need to focus more on?
 
-#City with HIGHEST "Not" Tried Before
-SELECT 
-	City,
-    Tried_before,
-    count(Tried_before) as Count
-FROM dim_cities
-JOIN dim_repondents
-USING (City_ID)
-JOIN fact_survey_responses
-USING (Respondent_ID)
-WHERE Tried_before="No"
-GROUP BY 1
-ORDER BY 3 desc;
+#City with HIGHEST "Not" Tried Before ( Tried_before="No")
+SELECT * FROM (
+	SELECT 
+		Tier,
+		City,
+		count(Tried_before) as Count,
+		rank() over(partition by Tier order by count(Tried_before) desc) as Count_Rank
+	FROM dim_cities
+	JOIN dim_repondents
+	USING (City_ID)
+	JOIN fact_survey_responses
+	USING (Respondent_ID)
+	WHERE Tried_before="No"
+	GROUP BY 1,2
+    ) AS tier_with_no
+  WHERE Count_Rank<4;  
 
 
 #City with LOWEST "YES" Tried Before
+SELECT * FROM (
+	SELECT 
+		Tier,
+		City,
+		count(Tried_before) as Count,
+		rank() over(partition by Tier order by count(Tried_before)) as Count_Rank
+	FROM dim_cities
+	JOIN dim_repondents
+	USING (City_ID)
+	JOIN fact_survey_responses
+	USING (Respondent_ID)
+	WHERE Tried_before="Yes"
+	GROUP BY 1,2
+    ) AS tier_with_yes
+  WHERE Count_Rank<4;  
+
+
+#Tried_before with Tier Breakdown 
 SELECT 
-	City,
+    Tier,
     Tried_before,
-    count(Tried_before) as Count
+    count(Tried_before) as Count,
+    dense_rank() over(partition by Tier order by count(Tried_before) desc) as Tried_Rank
 FROM dim_cities
 JOIN dim_repondents
 USING (City_ID)
 JOIN fact_survey_responses
 USING (Respondent_ID)
-WHERE Tried_before="Yes"
-GROUP BY 1
-ORDER BY 3;
+GROUP BY 2,1;
 
 --------------------------------------------------------------------
 
-#6B. Where do respondents prefer to purchase energy drinks?
+#6A. Where do respondents prefer to purchase energy drinks?
 
 SELECT 
 	Purchase_location,
@@ -262,6 +299,39 @@ SELECT
 FROM fact_survey_responses
 GROUP BY 1
 ORDER BY 2 desc;
+
+#Purchase Location with Tier
+SELECT 
+	Tier,
+	Purchase_location,
+    count(Respondent_ID) AS Vote
+FROM fact_survey_responses
+JOIN dim_repondents
+USING (Respondent_ID)
+JOIN dim_cities
+USING (City_ID)
+GROUP BY 1,2
+ORDER BY 1,3 desc;
+
+#Top 3 Purchase Location from Tier
+With Tier_Location AS (
+	SELECT 
+		Tier,
+		Purchase_location,
+		count(Respondent_ID) AS Vote,
+        dense_rank() over(partition by Tier order by count(Respondent_ID) desc) as Preference_Rank
+	FROM fact_survey_responses
+	JOIN dim_repondents
+	USING (Respondent_ID)
+	JOIN dim_cities
+	USING (City_ID)
+	GROUP BY 1,2
+	ORDER BY 1,4  
+)
+SELECT 
+	*
+FROM Tier_Location
+WHERE Preference_Rank <=3;
 
 -----------------------------------------------------------------------------------
 
