@@ -188,12 +188,17 @@ ORDER BY percent DESC;
 -- Let's do some analysis (how many % have tried or not)
 
 SELECT 
+    Tier,
     Tried_before,
-    count(Tried_before) as count,
-    round((count(Tried_before) * 100 / (SELECT count(*) FROM fact_survey_responses)),2) as percent
-FROM fact_survey_responses
-GROUP BY 1
-ORDER BY percent desc;
+    count(Tried_before) as Count,
+    round((count(Tried_before) * 100 / (SELECT count(*) FROM fact_survey_responses)),2) as percent,
+    dense_rank() over(partition by Tier order by count(Tried_before) desc) as Tried_Rank
+FROM dim_cities
+JOIN dim_repondents
+USING (City_ID)
+JOIN fact_survey_responses
+USING (Respondent_ID)
+GROUP BY 2,1;
 
 -- For those who haven't tried, Why?? (Tried_before = "No")
 # Top 3 Reasons why not!
