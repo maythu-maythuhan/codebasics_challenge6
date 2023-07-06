@@ -279,21 +279,6 @@ SELECT * FROM (
 	GROUP BY 1,2
     ) AS tier_with_yes
   WHERE Count_Rank<4;  
-
-
-#Tried_before with Tier Breakdown 
-SELECT 
-    Tier,
-    Tried_before,
-    count(Tried_before) as Count,
-    dense_rank() over(partition by Tier order by count(Tried_before) desc) as Tried_Rank
-FROM dim_cities
-JOIN dim_repondents
-USING (City_ID)
-JOIN fact_survey_responses
-USING (Respondent_ID)
-GROUP BY 2,1;
-
 --------------------------------------------------------------------
 
 #6A. Where do respondents prefer to purchase energy drinks?
